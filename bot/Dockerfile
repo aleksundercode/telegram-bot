@@ -1,7 +1,5 @@
 FROM node:16-alpine
 
-ENV DB_HOST=$DB_HOST
-
 WORKDIR /usr/src/app
 COPY . /usr/src/app
 
