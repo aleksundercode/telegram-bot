@@ -1,12 +1,23 @@
-const {Sequelize} = require('sequelize');
+const redis = require('redis');
+const { promisify } = require('util');
 
-const sequelize = new Sequelize("postgres://user:pass@postgres:5432/codes");
-module.exports = new Sequelize(
-    process.env.DB_NAME,
-    process.env.DB_USER,
-    process.env.DB_PASSWORD,
-     {
-         host: process.env.DB_HOST,
-         port: process.env.DB_PORT,
-         dialect: 'postgres'
-     });
+const client = redis.createClient({
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT
+});
+
+client.on('error', err => {
+    console.error('Redis error:', err);
+});
+
+const getAsync = promisify(client.get).bind(client);
+const setAsync = promisify(client.set).bind(client);
+const delAsync = promisify(client.del).bind(client);
+const keysAsync = promisify(client.keys).bind(client);
+
+module.exports = {
+    getAsync,
+    setAsync,
+    delAsync,
+    keysAsync
+};

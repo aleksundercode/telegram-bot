@@ -11,5 +11,5 @@ ROOT_POSTGRES_PASSWORD = 'PASSWORD_FOR_ROOT_DB_USER'
 
 Then run the docker compose, the bot should work
 ```
-docker-compose up
+docker-compose up -d
 ```
