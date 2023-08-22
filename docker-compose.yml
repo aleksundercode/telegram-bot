@@ -1,12 +1,11 @@
-
 version: '3.9'
+
 services:
   redis:
     image: redis:6.2.6-alpine
-    ports:
-      - '6379:6379'
     volumes:
       - 'redis:/data'
+
   bot:
     container_name: bot
     build:
@@ -14,17 +13,12 @@ services:
     image: my-bot:latest
     depends_on:
       - redis
-    ports:
-      - 3000:3000
     env_file:
       - .env
     environment:
       DB_HOST: redis
       DB_PORT: 6379
-    links:
-      - redis
-    volumes:
-      - './:/src'
+
 volumes:
   redis:
-    driver: local
+
