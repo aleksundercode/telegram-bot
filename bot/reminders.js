@@ -6,7 +6,7 @@ function moscowTime(now) {
     const parts = Object.fromEntries(formatter.formatToParts(now).map(p => [p.type, p.value]));
     return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
-async function runReminders(store, send, now = new Date(), allowedChats = new Set()) {
+async function runReminders(store, send, now = new Date(), allowedChats = new Set(), webURL = null) {
     const { date, hour } = moscowTime(now);
     if (hour < 10) return;
     for await (const chat of store.taskChats()) {
@@ -22,8 +22,11 @@ async function runReminders(store, send, now = new Date(), allowedChats = new Se
             token = await store.claimReminder(chat, date);
             if (!token) continue;
             const preview = items.map((item, i) => `${i + 1}. ${item.text.slice(0, 200)}`).join('\n');
-            await send(chat, `⏰ Незакрытых дел: ${count}\n\n${preview}${count > items.length ? '\n…' : ''}\n\nОткрыть список: /tasks`, {
-                reply_markup: { inline_keyboard: [[{ text: '📋 Открыть дела', callback_data: 'list:tasks:open:0' }]] },
+            const button = webURL && Number(chat) > 0
+                ? { text: '📋 Открыть дела', web_app: { url: new URL('?tab=tasks', webURL).href } }
+                : { text: '📋 Открыть дела', callback_data: 'list:tasks:open:0' };
+            await send(chat, `⏰ Незакрытых дел: ${count}\n\n${preview}${count > items.length ? '\n…' : ''}`, {
+                reply_markup: { inline_keyboard: [[button]] },
             });
             await store.finishReminder(chat, date, token, true);
         } catch (error) {
@@ -35,14 +38,14 @@ async function runReminders(store, send, now = new Date(), allowedChats = new Se
         }
     }
 }
-function startReminders(store, send, allowedChats = new Set()) {
+function startReminders(store, send, allowedChats = new Set(), webURL = null) {
     let running = false;
     let nextAttempt = 0;
     const tick = async () => {
         if (running || Date.now() < nextAttempt) return;
         running = true;
         try {
-            const retryDelay = await runReminders(store, send, new Date(), allowedChats);
+            const retryDelay = await runReminders(store, send, new Date(), allowedChats, webURL);
             nextAttempt = retryDelay ? Date.now() + retryDelay : 0;
         }
         catch (error) { console.error('Reminder scheduler:', error.message); }

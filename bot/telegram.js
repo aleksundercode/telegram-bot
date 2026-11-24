@@ -30,7 +30,7 @@ async function showList(ctx, store, kind, status = 'open', page = 0, edit = fals
     }
     return ctx.reply(text, options);
 }
-function createBot(token, store, env = {}) {
+function createBot(token, store, env = {}, webURL = null) {
     const bot = new Telegraf(token);
     const allowed = new Set((env.ALLOWED_CHAT_IDS || '').split(',').map(id => id.trim()).filter(Boolean));
     bot.use(async (ctx, next) => {
@@ -53,8 +53,19 @@ function createBot(token, store, env = {}) {
         await ctx.reply(`Добавлено: ${lines.length}. ${kind === 'tasks' ? '📋 Дела' : '🛒 Покупки'}`, menu);
         return showList(ctx, store, kind);
     };
-    bot.start(ctx => ctx.reply(HELP, menu));
-    bot.help(ctx => ctx.reply(HELP, menu));
+    const openApp = ctx => ctx.reply('Покупки и дела в одном месте. Откройте списки кнопкой ниже.', {
+        reply_markup: { inline_keyboard: [[{ text: 'Открыть списки', web_app: { url: webURL } }]] },
+    });
+    const help = async ctx => {
+        if (!webURL || ctx.chat.type !== 'private') return ctx.reply(HELP, menu);
+        await ctx.reply('Ваши списки теперь доступны в приложении.', Markup.removeKeyboard());
+        return openApp(ctx);
+    };
+    bot.start(help);
+    bot.help(help);
+    bot.use((ctx, next) => webURL && ctx.chat.type === 'private' && !ctx.callbackQuery
+        ? (ctx.message?.text ? openApp(ctx) : undefined)
+        : next());
     bot.hears('ℹ️ Помощь', ctx => ctx.reply(HELP, menu));
     bot.command('products', ctx => setMode(ctx, 'products'));
     bot.command('tasks', ctx => setMode(ctx, 'tasks'));

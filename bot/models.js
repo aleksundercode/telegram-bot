@@ -1,11 +1,16 @@
 const { randomUUID } = require('node:crypto');
 
 const ADD = `
-local id = redis.call('INCR', KEYS[1])
-redis.call('HSET', ARGV[1] .. id, 'id', id, 'text', ARGV[2], 'createdAt', ARGV[3])
-redis.call('ZADD', KEYS[2], id, id)
-if ARGV[4] == 'tasks' then redis.call('SADD', KEYS[3], ARGV[5]) end
-return tostring(id)`;
+local ids = {}
+for i = 5, #ARGV do
+    redis.call('INCR', KEYS[1])
+    local id = redis.call('GET', KEYS[1])
+    redis.call('HSET', ARGV[1] .. id, 'id', id, 'text', ARGV[i], 'createdAt', ARGV[2])
+    redis.call('ZADD', KEYS[2], id, id)
+    ids[#ids + 1] = id
+end
+if ARGV[3] == 'tasks' then redis.call('SADD', KEYS[3], ARGV[4]) end
+return ids`;
 const MOVE = `
 if redis.call('ZREM', KEYS[1], ARGV[1]) == 0 then return 0 end
 if ARGV[2] == 'delete' then redis.call('DEL', KEYS[3])
@@ -28,12 +33,17 @@ class Store {
         return `v2:chat:${chat}:${kind}`;
     }
     async add(chat, kind, text) {
-        text = text.trim();
-        if (!text || text.length > 500) throw new Error('Текст должен содержать от 1 до 500 символов.');
+        const [id] = await this.addMany(chat, kind, [text]);
+        return id;
+    }
+    async addMany(chat, kind, texts) {
+        if (!Array.isArray(texts) || !texts.length || texts.length > 20) throw new Error('Допускается от 1 до 20 записей.');
+        const lines = texts.map(text => text.trim());
+        if (lines.some(text => !text || text.length > 500)) throw new Error('Текст должен содержать от 1 до 500 символов.');
         const base = this.base(chat, kind);
         return this.client.eval(ADD, {
             keys: ['v2:nextId', `${base}:open`, 'v2:taskChats'],
-            arguments: [`${base}:item:`, text, new Date().toISOString(), kind, String(chat)],
+            arguments: [`${base}:item:`, new Date().toISOString(), kind, String(chat), ...lines],
         });
     }
     async list(chat, kind, status = 'open', page = 0, size = 6) {

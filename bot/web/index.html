@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Мои списки</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="header"><span class="mark" aria-hidden="true">✓</span><span>Мои списки</span></header>
+    <nav class="tabs" aria-label="Разделы">
+      <button type="button" data-kind="products" aria-pressed="true">Покупки</button>
+      <button type="button" data-kind="tasks" aria-pressed="false">Дела</button>
+    </nav>
+    <section class="hero" aria-labelledby="title">
+      <div><h1 id="title">Покупки</h1><p id="summary"></p></div>
+      <div class="hero-symbol" id="symbol" aria-hidden="true">🛒</div>
+    </section>
+    <p id="error" role="alert" hidden></p>
+    <div id="workspace" hidden>
+      <form id="add-form">
+        <label class="sr-only" for="entry">Новая запись</label>
+        <textarea id="entry" rows="1" maxlength="10020" placeholder="Что купить?" required></textarea>
+        <button type="submit" aria-label="Добавить запись" title="Добавить запись">+</button>
+      </form>
+      <div class="filters" role="group" aria-label="Состояние записей">
+        <button type="button" data-status="open" aria-pressed="true">Открытые</button>
+        <button type="button" data-status="done" aria-pressed="false">Завершённые</button>
+      </div>
+      <section aria-label="Записи" id="records">
+        <ul id="list"></ul>
+        <div class="empty" id="empty" hidden></div>
+      </section>
+      <nav id="pagination" aria-label="Страницы" hidden>
+        <button type="button" id="prev" aria-label="Предыдущая страница">←</button>
+        <span id="page"></span>
+        <button type="button" id="next" aria-label="Следующая страница">→</button>
+      </nav>
+      <label id="reminder-settings" hidden>
+        <span><strong>Утреннее напоминание</strong><small>Каждый день в 10:00 МСК, если остались дела</small></span>
+        <input type="checkbox" role="switch" id="reminders" disabled>
+      </label>
+    </div>
+    <p class="sr-only" id="announcement" role="status"></p>
+  </main>
+</body>
+</html>
