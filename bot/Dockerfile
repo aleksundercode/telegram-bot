@@ -1,10 +1,8 @@
-FROM node:16-alpine
-
+FROM node:24-alpine
+ENV NODE_ENV=production
 WORKDIR /usr/src/app
-COPY . /usr/src/app
-
-RUN npm install
-
-EXPOSE 3000
-CMD ["/bin/sh", "-c", "./w8_init_db.sh $DB_HOST npm start"]
-#CMD ["npm", "start"]
+COPY package*.json ./
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi && npm cache clean --force
+COPY --chown=node:node . .
+USER node
+CMD ["node", "index.js"]

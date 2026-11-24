@@ -1,23 +1,13 @@
-const redis = require('redis');
-const { promisify } = require('util');
+const { createClient } = require('redis');
 
-const client = redis.createClient({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT
-});
+function createDatabase(env = process.env) {
+    const client = createClient({
+        url: env.REDIS_URL || `redis://${env.DB_HOST || 'localhost'}:${env.DB_PORT || 6379}`,
+        disableOfflineQueue: true,
+        socket: { connectTimeout: 10000 },
+    });
+    client.on('error', error => console.error('Redis:', error.message));
+    return client;
+}
 
-client.on('error', err => {
-    console.error('Redis error:', err);
-});
-
-const getAsync = promisify(client.get).bind(client);
-const setAsync = promisify(client.set).bind(client);
-const delAsync = promisify(client.del).bind(client);
-const keysAsync = promisify(client.keys).bind(client);
-
-module.exports = {
-    getAsync,
-    setAsync,
-    delAsync,
-    keysAsync
-};
+module.exports = { createDatabase };

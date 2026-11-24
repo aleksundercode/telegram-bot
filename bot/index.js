@@ -1,62 +1,45 @@
-const TelegramBot = require('node-telegram-bot-api');
-const { addProduct, getAllProducts, deleteProductById } = require('./models');
+const { createDatabase } = require('./db');
+const { Store } = require('./models');
+const { createBot } = require('./telegram');
+const { startReminders } = require('./reminders');
 
-const token = process.env.TOKEN;
-
-const bot = new TelegramBot(token, { polling: true });
-
-bot.setMyCommands([
-    { command: '/products', description: 'Показать список продуктов' }
-]);
-
-bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
-    const product = msg.text;
-    const id = msg.message_id;
-
-    for (let i = 0; i < 10; i++) {
-        bot.deleteMessage(chatId, id - i);
-    }
-
-    if (product === '/start') {
-        return bot.sendMessage(chatId, 'Привет');
-    }
-    if (product === '/products') {
-        return collectList(chatId);
-    } else {
-        await addProduct(product);
-        return bot.sendMessage(chatId, `Добавил ${product} в список покупок`);
-    }
-});
-
-bot.on('callback_query', async (msg) => {
-    const data = msg.data;
-    const chatId = msg.message.chat.id; // обновлено для обработчика callback_query
-    try {
-        await deleteProductById(data);
-        bot.deleteMessage(chatId, msg.message.message_id);
-    } catch (e) {
-        console.log(e);
-        console.log('Failed destroy', e);
-    }
-    return collectList(chatId);
-});
-
-const collectList = async (chatId) => { // передаем chatId как параметр
-    const products = await getAllProducts();
-    const productList = products.map((product) => product.product);
-    const productsOptions = {
-        reply_markup: JSON.stringify({
-            inline_keyboard: products.map((x) => ([{
-                text: x.product,
-                callback_data: String(x.id),
-            }])),
-        }),
+async function main() {
+    if (!process.env.TOKEN) throw new Error('Set TOKEN in .env');
+    const client = createDatabase();
+    await client.connect();
+    const store = new Store(client);
+    if (process.env.LEGACY_CHAT_ID) console.log('Imported legacy products:', await store.migrateLegacy(process.env.LEGACY_CHAT_ID));
+    const bot = createBot(process.env.TOKEN, store, process.env);
+    let stopReminders = () => {};
+    let stopping = false;
+    const shutdown = async (signal) => {
+        if (stopping) return;
+        stopping = true;
+        stopReminders();
+        try { bot.stop(signal); } catch { /* Polling may not have started yet. */ }
+        if (client.isOpen) await client.quit();
     };
-
-    if (productsOptions.reply_markup === '{"inline_keyboard":[]}') {
-        return bot.sendMessage(chatId, 'Список пустой');
-    } else {
-        return bot.sendMessage(chatId, 'Список продуктов:', productsOptions);
-    }
-};
+    process.once('SIGINT', () => void shutdown('SIGINT'));
+    process.once('SIGTERM', () => void shutdown('SIGTERM'));
+    await bot.telegram.setMyCommands([
+        { command: 'products', description: 'Список покупок' },
+        { command: 'tasks', description: 'Список дел' },
+        { command: 'buy', description: 'Добавить покупку: /buy молоко' },
+        { command: 'todo', description: 'Добавить дело: /todo оплатить интернет' },
+        { command: 'done', description: 'Завершённые в текущем разделе' },
+        { command: 'reminders', description: 'Напоминания: /reminders on или off' },
+        { command: 'help', description: 'Как пользоваться' },
+    ]);
+    // Telegraf launch resolves when polling stops.
+    await bot.launch({}, () => {
+        const allowed = new Set((process.env.ALLOWED_CHAT_IDS || '').split(',').map(id => id.trim()).filter(Boolean));
+        if (!stopping) stopReminders = startReminders(store, bot.telegram.sendMessage.bind(bot.telegram), allowed);
+        console.log('Bot started; reminders at 10:00 Europe/Moscow');
+    });
+    await shutdown('polling stopped');
+}
+if (require.main === module) main().catch(error => {
+    console.error('Startup failed:', error.description || error.message);
+    process.exit(1);
+});
+module.exports = { main };

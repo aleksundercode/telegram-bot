@@ -1,18 +1,11 @@
 {
-  "name": "my-bot",
-  "version": "1.0.0",
-  "description": "",
+  "name": "shopping-and-tasks-bot",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Telegram shopping lists and tasks with daily Moscow reminders",
   "main": "index.js",
-  "scripts": {
-    "dev": "nodemon index.js",
-    "start": "node index.js"
-  },
-  "keywords": [],
-  "author": "",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node index.js", "dev": "node --watch index.js", "test": "node --test" },
   "license": "ISC",
-  "dependencies": {
-    "node-telegram-bot-api": "^0.59.0",
-    "nodemon": "^2.0.19",
-    "redis": "^3.1.2"
-  }
+  "dependencies": { "redis": "5.10.0", "telegraf": "4.16.3" }
 }
